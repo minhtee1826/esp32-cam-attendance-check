@@ -37,14 +37,14 @@ esp32_attendance/
 | **ESP32 DevKit V1** | 01 | ✅ | Main controller, Relay, LCD |
 | **ESP32-CAM** | 01 | ✅ | Video stream & Face ID |
 | **LCD 16x2 / 20x4 I2C** | 01 | ⏳ | Menu & status display |
-| **Solenoid Door Lock** | 01 | ⏳ | Check power & suction force |
+| **Solenoid Door Lock** | 01 | ✅ | Check power & suction force |
 | **5V Relay Module** | 01 | ⏳ | Trigger door latch |
 | **12V Switching Power Supply** | 01 | ✅ | Main power supply for system |
 | **RFID Scanner (RC522)** | 03 | ⏳ | Backup door opening via card |
 | **RFID Tag / Keycard** | - | ⏳ | Included accessories |
-| **DC-to-DC Converter (12V->5V)** | 02 | ⏳ | Step-down for ESP32 & Cam |
-| **Buzzer** | 01 | ⏳ | Status alerts |
-| **Fan & Light** | 01 | ⏳ | Supporting peripherals |
+| **DC-to-DC Converter (12V->5V)** | 02 | ✅ | Step-down for ESP32 & Cam |
+| **Buzzer** | 01 | ✅ | Status alerts |
+| **Fan & Light** | 01 | ✅ | Supporting peripherals |
 
 ## 📋 DETAILED TASK LIST
 
