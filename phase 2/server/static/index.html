@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Attendance System - Control Panel</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: #16213e;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4ecca3;
+        }
+
+        .video-section {
+            text-align: center;
+            margin-bottom: 20px;
+            border: 2px solid #0f3460;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            min-height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #video-feed {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+
+        .btn-open {
+            background-color: #4ecca3;
+            color: #1a1a2e;
+        }
+
+        .btn-lock {
+            background-color: #e94560;
+            color: #ffffff;
+        }
+
+        .btn-status {
+            background-color: #0f3460;
+            color: #ffffff;
+            grid-column: span 2;
+        }
+
+        button:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .status-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0f3460;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #status-text {
+            font-weight: bold;
+            color: #4ecca3;
+        }
+
+        .log-panel {
+            margin-top: 20px;
+            height: 100px;
+            overflow-y: auto;
+            background: #1a1a2e;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>🚪 Door Control Panel</h1>
+
+        <div class="video-section">
+            <img id="video-feed" src="/video_feed" alt="Camera Stream (Waiting for connection...)">
+        </div>
+
+        <div class="status-panel">
+            Trạng thái cửa: <span id="status-text">Đang kiểm tra...</span>
+        </div>
+
+        <div class="controls">
+            <button class="btn-open" onclick="sendCommand('OPEN_DOOR')">MỞ CỬA</button>
+            <button class="btn-lock" onclick="sendCommand('LOCK_DOOR')">KHÓA CỬA</button>
+            <button class="btn-status" onclick="sendCommand('STATUS')">CẬP NHẬT TRẠNG THÁI</button>
+        </div>
+
+        <div class="log-panel" id="log-panel">
+            <div>[System] Khởi tạo giao diện Hệ thống Điểm danh & Khóa cửa...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        let socket;
+        const statusText = document.getElementById('status-text');
+        const logPanel = document.getElementById('log-panel');
+
+        function connect() {
+            // Khởi tạo Socket.IO kết nối tới server (cùng host)
+            socket = io();
+
+            socket.on('connect', () => {
+                addLog("Kết nối với SocketIO Server thành công (ID: " + socket.id + ")");
+                sendCommand('STATUS');
+            });
+
+            socket.on('response', (message) => {
+                addLog("Server: " + message);
+
+                // Handle door status
+                if (message.includes("OK:Door opened") || message.includes("OK:OPEN")) {
+                    statusText.innerText = "ĐANG MỞ";
+                    statusText.style.color = "#4ecca3";
+                } else if (message.includes("OK:Door locked") || message.includes("OK:LOCKED")) {
+                    statusText.innerText = "ĐANG KHÓA";
+                    statusText.style.color = "#e94560";
+                }
+
+                // Handle lock connection status
+                if (message === "LOCK_CONNECTED" || message.includes("Connected to Door Lock")) {
+                    statusText.innerText = "KẾT NỐI OK - Đang kiểm tra...";
+                    statusText.style.color = "#4ecca3";
+                    sendCommand('STATUS');  // Auto-request status when connected
+                } else if (message === "LOCK_DISCONNECTED") {
+                    statusText.innerText = "MẤT KẾT NỐI KHÓA CỬA";
+                    statusText.style.color = "#ff6b6b";
+                } else if (message === "TIMEOUT:AUTO_LOCKED") {
+                    statusText.innerText = "TỰ ĐỘNG KHÓA (Timeout)";
+                    statusText.style.color = "#ffa500";
+                }
+
+                // Handle signal info
+                if (message.startsWith("SIGNAL:")) {
+                    // Format: SIGNAL:GOOD:-55
+                    const parts = message.split(":");
+                    addLog("📶 Tín hiệu WiFi: " + parts[1] + " (" + parts[2] + " dBm)");
+                }
+            });
+
+            socket.on('disconnect', () => {
+                addLog("Mất kết nối với Server.");
+            });
+
+            socket.on('connect_error', (err) => {
+                addLog("Lỗi kết nối: " + err.message);
+            });
+        }
+
+        function sendCommand(cmd) {
+            if (socket && socket.connected) {
+                socket.emit('command', cmd);
+                addLog("Gửi lệnh: " + cmd);
+            } else {
+                addLog("Lỗi: Chưa kết nối với Server điều khiển.");
+            }
+        }
+
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logPanel.appendChild(div);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        // Khởi động kết nối
+        connect();
+    </script>
+
+</body>
+
+</html>
